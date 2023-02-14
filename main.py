@@ -8,28 +8,29 @@ from pandas import NaT
 
 def main():
     """
-    A script to generate a burndown chart from a github milestone
+    A script to generate a burn-down chart from a GitHub milestone
+    Example usage: python3 main.py
     """
 
-    # Prompt the user for the github project
-    project = input('Enter the github project (e.g. nqsullivan/Burndown_Chart_Generator): ')
+    # Prompt the user for the GitHub project
+    project = input('Enter the GitHub project (e.g. nqsullivan/Burndown_Chart_Generator): ')
 
-    # Prompt the user for the github milestone
-    milestone = input('Enter the github milestone (e.g. 1): ')
+    # Prompt the user for the GitHub milestone
+    milestone = input('Enter the GitHub milestone (e.g. 1): ')
 
-    # Prompt the user for the github username
-    username = input('Enter the github username: ')
+    # Prompt the user for the GitHub username
+    username = input('Enter the GitHub username: ')
 
-    # Prompt the user for the github personal access token
-    pat = input('Enter the github personal access token: ')
+    # Prompt the user for the GitHub personal access token
+    pat = input('Enter the GitHub personal access token: ')
 
-    # Pull the data from github
+    # Pull the data from GitHub
     data = get_data(project, milestone, username, pat)
 
     # Get the milestone start date and end date from the api
     start_date, end_date = get_milestone_dates(project, milestone, username, pat)
 
-    # Generate the burndown chart
+    # Generate the burn-down chart
     # generate_burndown_chart(data, start_date, end_date)
     generate_burndown_chart(
         data,
@@ -41,15 +42,15 @@ def main():
 
 def get_data(project, milestone, username, pat):
     """
-    Pull the data from github
-    :param project: The github project name
-    :param milestone: The github milestone number
-    :param username: The github username
-    :param pat: The github personal access token
+    Pull the data from GitHub
+    :param project: The GitHub project name
+    :param milestone: The GitHub milestone number
+    :param username: The GitHub username
+    :param pat: The GitHub personal access token
     :return: A pandas dataframe containing the data
     """
 
-    # Make a request to the github API
+    # Make a request to the GitHub API
     r = requests.get('https://api.github.com/repos/' + project + '/issues?milestone=' + milestone + '&state=all',
                      auth=(username, pat))
 
@@ -72,14 +73,14 @@ def get_data(project, milestone, username, pat):
 def get_milestone_dates(project, milestone, username, pat):
     """
     Get the milestone start date and end date from the api
-    :param project: The github project name
-    :param milestone: The github milestone number
-    :param username: The github username
-    :param pat: The github personal access token
+    :param project: The GitHub project name
+    :param milestone: The GitHub milestone number
+    :param username: The GitHub username
+    :param pat: The GitHub personal access token
     :return: The milestone start date and end date
     """
 
-    # Make a request to the github API
+    # Make a request to the GitHub API
     r = requests.get('https://api.github.com/repos/' + project + '/milestones/' + milestone,
                      auth=(username, pat))
 
@@ -93,26 +94,26 @@ def get_milestone_dates(project, milestone, username, pat):
 
 def get_commits(project, start_date, end_date, username, pat):
     """
-    Pull the data from github
-    :param project: The github project name
+    Pull the data from GitHub
+    :param project: The GitHub project name
     :param start_date: The milestone start date
     :param end_date: The milestone end date
-    :param username: The github username
-    :param pat: The github personal access token
+    :param username: The GitHub username
+    :param pat: The GitHub personal access token
     :return: A pandas dataframe containing the data
     """
 
     d = pd.DataFrame()
 
-    # There will be multiple pages of commits so we need to loop through them
+    # There will be multiple pages of commits, so we need to loop through them
     for page in range(1, 100):
-        # Make a request to the github API
+        # Make a request to the GitHub API
         r = requests.get('https://api.github.com/repos/' + project + '/commits?page=' + str(page),
                          auth=(username, pat))
 
         d = pd.concat([d, pd.DataFrame(r.json())])
 
-        # If there are no more commits then break out of the loop
+        # If there are no more commits, break out of the loop
         if len(r.json()) == 0:
             break
 
@@ -183,13 +184,13 @@ def generate_burndown_chart(data, commits, start_date, end_date):
             if row['closed_at'] == date:
                 df.at[date, 'issues_closed'] += 1
 
-    # Set the x axis to be each date in range of the start date and end date
+    # Set the x-axis to be each date in range of the start date and end date
     index = pd.date_range(start_date, end_date)
     labels = index.strftime('%m-%d')
     plt.xticks(index, labels, rotation=45)
     plt.plot(df.index, df['total_issues'])
 
-    # Create another line on the chart that draws a straight line (startdate, total issues) to (enddate, 0)
+    # Create another line on the chart that draws a straight line (start date, total issues) to (end date, 0)
     plt.plot([start_date, end_date], [len(data), 0])
 
     # Create bars on the chart that show the number of issues opened and closed each day side by side
