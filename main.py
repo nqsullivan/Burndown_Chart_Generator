@@ -12,8 +12,7 @@ def main():
     """
 
     # Prompt the user for the github project
-    # project = input('Enter the github project (e.g. nqsullivan/Burndown_Chart_Generator): ')
-    project = 'amehlhase316/Kopfkino-Spring23C'
+    project = input('Enter the github project (e.g. nqsullivan/Burndown_Chart_Generator): ')
 
     # Prompt the user for the github milestone
     milestone = input('Enter the github milestone (e.g. 1): ')
@@ -31,7 +30,13 @@ def main():
     start_date, end_date = get_milestone_dates(project, milestone, username, pat)
 
     # Generate the burndown chart
-    generate_burndown_chart(data, start_date, end_date)
+    # generate_burndown_chart(data, start_date, end_date)
+    generate_burndown_chart(
+        data,
+        get_commits(project, start_date, end_date, username, pat),
+        start_date,
+        end_date
+    )
 
 
 def get_data(project, milestone, username, pat):
@@ -86,10 +91,55 @@ def get_milestone_dates(project, milestone, username, pat):
     return pd.to_datetime(start_date).date(), pd.to_datetime(end_date).date()
 
 
-def generate_burndown_chart(data, start_date, end_date):
+def get_commits(project, start_date, end_date, username, pat):
+    """
+    Pull the data from github
+    :param project: The github project name
+    :param start_date: The milestone start date
+    :param end_date: The milestone end date
+    :param username: The github username
+    :param pat: The github personal access token
+    :return: A pandas dataframe containing the data
+    """
+
+    d = pd.DataFrame()
+
+    # There will be multiple pages of commits so we need to loop through them
+    for page in range(1, 100):
+        # Make a request to the github API
+        r = requests.get('https://api.github.com/repos/' + project + '/commits?page=' + str(page),
+                         auth=(username, pat))
+
+        d = pd.concat([d, pd.DataFrame(r.json())])
+
+        # If there are no more commits then break out of the loop
+        if len(r.json()) == 0:
+            break
+
+    # Filter the commits to only include the columns sha and the commit date which is commit.author.date
+    d = d[['sha', 'commit']]
+    d['commit'] = d['commit'].apply(lambda x: x['author']['date'])
+
+    # Rename the commit column to be created_at
+    d = d.rename(columns={'commit': 'created_at'})
+
+    # Change the data so each date time field is a date with the format YYYY-MM-DD
+    d['created_at'] = pd.to_datetime(d['created_at']).dt.date
+
+    # Filter the commits to only include those between the start and end date
+    d = d[(d['created_at'] >= start_date) & (d['created_at'] <= end_date)]
+
+    print(d)
+
+    # Return the dataframe
+    return d
+
+
+def generate_burndown_chart(data, commits, start_date, end_date):
     """
     Generate the burndown chart
     :param data: A pandas dataframe containing the data
+    :param commits: A pandas dataframe containing the commits
     :param start_date: The milestone start date
     :param end_date: The milestone end date
     """
@@ -146,6 +196,14 @@ def generate_burndown_chart(data, start_date, end_date):
     sub_plot = plt.subplot()
     sub_plot.bar(df.index - datetime.timedelta(days=0.2), df['issues_opened'], width=0.4, color='g')
     sub_plot.bar(df.index + datetime.timedelta(days=0.2), df['issues_closed'], width=0.4, color='r')
+
+    # Add a line to the graph that shows the commits per day
+    commits['created_at'] = pd.to_datetime(commits['created_at']).dt.date
+    commits = commits.groupby('created_at').count()
+    plt.plot(commits.index, commits['sha'])
+
+    # Create a legend
+    plt.legend(['Total Issues', 'Ideal Burndown', 'Commits', 'Issues Opened', 'Issues Closed'])
 
     plt.show()
 
